@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
+import { exportPGNToFile, importPGNFromFile } from '../pgnUtils';
 
 const ChessboardComponent: React.FC = () => {
   const game = useRef(new Chess());
@@ -13,7 +14,7 @@ const ChessboardComponent: React.FC = () => {
     if (move) {
       setFen(game.current.fen());
       setMoveHistory((prev) => [...prev, move.san]);
-      setFenHistory((prev) => [...prev, game.current.fen()]); // Speichere die neue FEN
+      setFenHistory((prev) => [...prev, game.current.fen()]);
       return true;
     }
     return false;
@@ -28,30 +29,58 @@ const ChessboardComponent: React.FC = () => {
   };
 
   return (
-    <div className="flex justify-center items-start h-screen p-4">
-      <div className="w-1/2 flex justify-center">
-        <Chessboard
-          position={fen}
-          onPieceDrop={(sourceSquare, targetSquare) =>
-            handleMove(sourceSquare, targetSquare)
-          }
-          boardWidth={Math.min(500, window.innerWidth / 2 - 16)}
-        />
-      </div>
-      <div className="w-1/2 p-4 bg-gray-100 rounded shadow overflow-y-auto max-h-[80vh]">
-        <h2 className="text-xl font-semibold mb-2">Zug-Notation</h2>
-        <div>
-          {moveHistory.map((move, index) => (
-            <p
-              key={index}
-              onClick={() => handleClickOnMove(index)} // Exakter FEN-Index wird verwendet
-              className="cursor-pointer hover:bg-gray-300 p-1 rounded"
-            >
-              {Math.floor(index / 2) + 1}.
-              {index % 2 === 0 ? " " + move : " ... " + move}
-            </p>
-          ))}
+    <div className="flex flex-col justify-center items-center h-screen p-4">
+      <div className="flex w-full">
+        <div className="w-1/2 flex justify-center">
+          <Chessboard
+            position={fen}
+            onPieceDrop={(sourceSquare, targetSquare) =>
+              handleMove(sourceSquare, targetSquare)
+            }
+            boardWidth={Math.min(500, window.innerWidth / 2 - 16)}
+          />
         </div>
+        <div className="w-1/2 p-4 bg-gray-100 rounded shadow overflow-y-auto max-h-[80vh]">
+          <h2 className="text-xl font-semibold mb-2">Zug-Notation</h2>
+          <div className="grid gap-2" style={{ gridTemplateColumns: '20px 1fr 1fr' }}> 
+            {moveHistory.map((move, index) => {
+              const moveNumber = Math.floor(index / 2) + 1;
+              const isWhiteMove = index % 2 === 0;
+              return (
+                <React.Fragment key={index}>
+                  {isWhiteMove && (
+                    <p className="col-start-1 text-right font-semibold pr-2">{moveNumber}.</p>
+                  )}
+                  <p
+                    onClick={() => handleClickOnMove(index)}
+                    className={`cursor-pointer p-1 rounded ${
+                      isWhiteMove ? "col-start-2 bg-blue-100" : "col-start-3 bg-red-100"
+                    } hover:bg-blue-200`}
+                  >
+                    {move}
+                  </p>
+                  {!isWhiteMove && <span></span>}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      <div className="mt-4 flex space-x-4">
+        <button
+          onClick={() => exportPGNToFile(game.current)}
+          className="bg-blue-500 text-white px-4 py-2 rounded"
+        >
+          Exportiere PGN als Datei
+        </button>
+        <input
+          type="file"
+          accept=".pgn"
+          onChange={(event) =>
+            importPGNFromFile(event, game.current, setFen, setMoveHistory, setFenHistory)
+          }
+          className="bg-green-500 text-white px-4 py-2 rounded cursor-pointer"
+        />
       </div>
     </div>
   );
