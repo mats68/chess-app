@@ -7,7 +7,6 @@ export const saveOpenings = (openings: ChessOpening[]) => {
   try {
     const openingsJson = JSON.stringify(openings);
     localStorage.setItem(STORAGE_KEY, openingsJson);
-    console.log('Saved to localStorage:', openingsJson); // Debug-Log
   } catch (error) {
     console.error('Error saving to localStorage:', error);
   }
@@ -16,7 +15,6 @@ export const saveOpenings = (openings: ChessOpening[]) => {
 export const loadOpenings = (): ChessOpening[] => {
   try {
     const savedData = localStorage.getItem(STORAGE_KEY);
-    console.log('Loaded from localStorage:', savedData); // Debug-Log
     if (savedData) {
       return JSON.parse(savedData);
     }

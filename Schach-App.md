@@ -24,3 +24,6 @@ Ich möchte zunächst die Struktur und die pgn Varianten im local Storage des Br
 Es sollen nach und nach weitere Funktionen hinzukommen.
 
 
+Ich will bei PGN importieren und PGN Exportieren ein Dropdown menü Mit jewils 2 Optionen: 1. PGN in Datei importieren 2. PGN in Zwischenablage importieren 
+1. PGN in Datei Exportieren 2. PGN in Zwischenablage exportieren 
+
