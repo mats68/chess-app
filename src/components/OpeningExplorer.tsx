@@ -1,19 +1,29 @@
 // src/components/OpeningExplorer.tsx
-import React, {useState, useEffect} from 'react'
-import {DragDropContext, Droppable, Draggable, DropResult} from 'react-beautiful-dnd'
-import {ChessOpening, ChessChapter, ChessVariant} from '../types/chess'
-import {saveOpenings, loadOpenings} from '../storage/chessStorage'
-import ChessboardComponent from './Chessboard'
-import DatabaseControls from './DatabaseControls'
-import {TrashIcon, PencilIcon, GripVertical} from 'lucide-react'
+import React, { useState, useEffect } from 'react';
+import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
+import { ChessOpening, ChessChapter, ChessVariant } from '../types/chess';
+import { saveOpenings, loadOpenings } from '../storage/chessStorage';
+import ChessboardComponent from './Chessboard';
+import DatabaseControls from './DatabaseControls';
+import { TrashIcon, PencilIcon, GripVertical, ArrowLeft } from 'lucide-react';
+
+type ViewMode = 'tree' | 'board';
+
+interface SelectedPath {
+  openingName: string;
+  chapterName: string;
+  variantName: string;
+}
 
 const OpeningExplorer: React.FC = () => {
-  const [openings, setOpenings] = useState<ChessOpening[]>([])
-  const [selectedOpening, setSelectedOpening] = useState<string | null>(null)
-  const [selectedChapter, setSelectedChapter] = useState<string | null>(null)
-  const [selectedVariant, setSelectedVariant] = useState<string | null>(null)
-  const [currentPgn, setCurrentPgn] = useState<string>('')
-
+    const [viewMode, setViewMode] = useState<ViewMode>('tree');
+    const [openings, setOpenings] = useState<ChessOpening[]>([]);
+    const [selectedOpening, setSelectedOpening] = useState<string | null>(null);
+    const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
+    const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
+    const [selectedPath, setSelectedPath] = useState<SelectedPath | null>(null);
+    const [currentPgn, setCurrentPgn] = useState<string>('');
+  
   // Laden der Daten beim Start
   useEffect(() => {
     const savedOpenings = loadOpenings()
@@ -327,124 +337,242 @@ const OpeningExplorer: React.FC = () => {
     }
   }
 
-  return (
-    <div className='flex flex-col h-screen'>
-      <div className='p-4 bg-white border-b'>
-        <DatabaseControls openings={openings} onImport={handleDatabaseImport} />
-      </div>
 
-      <div className='flex flex-1 overflow-hidden'>
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <div className='w-64 bg-gray-100 p-4 overflow-y-auto'>
-            <button onClick={addOpening} className='w-full mb-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600'>
-              Neue Eröffnung
-            </button>
+  const handleVariantClick = (
+    variant: ChessVariant, 
+    openingName: string, 
+    chapterName: string
+  ) => {
+    setSelectedVariant(variant.id);
+    setSelectedPath({
+      openingName,
+      chapterName,
+      variantName: variant.name
+    });
+    setViewMode('board');
+  };
 
-            <Droppable droppableId='openings' type='OPENING'>
-              {provided => (
-                <div ref={provided.innerRef} {...provided.droppableProps}>
-                  {openings.map((opening, index) => (
-                    <Draggable key={opening.id} draggableId={opening.id} index={index}>
-                      {provided => (
-                        <div ref={provided.innerRef} {...provided.draggableProps} className='mb-4'>
-                          <div className={`flex items-center p-2 cursor-pointer ${selectedOpening === opening.id ? 'bg-blue-100' : ''}`}>
-                            <div {...provided.dragHandleProps} className='mr-2'>
-                              <GripVertical className='w-4 h-4 text-gray-400' />
-                            </div>
-                            <div className='flex-grow' onClick={() => setSelectedOpening(opening.id)}>
-                              <span className='font-bold'>{opening.name}</span>
-                            </div>
-                            <div className='flex space-x-2'>
-                              <button
-                                onClick={e => {
-                                  e.stopPropagation()
-                                  addChapter(opening.id)
-                                }}
-                                className='text-sm bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600'>
-                                + Kapitel
-                              </button>
-                              <PencilIcon className='w-5 h-5 text-gray-600 hover:text-gray-800 cursor-pointer' onClick={() => renameOpening(opening.id, opening.name)} />
-                              <TrashIcon className='w-5 h-5 text-red-500 hover:text-red-700 cursor-pointer' onClick={() => deleteOpening(opening.id)} />
-                            </div>
-                          </div>
-
-                          {selectedOpening === opening.id && (
-                            <Droppable droppableId={`chapters-${opening.id}`} type='CHAPTER'>
-                              {provided => (
-                                <div ref={provided.innerRef} {...provided.droppableProps} className='ml-4'>
-                                  {opening.chapters.map((chapter, chapterIndex) => (
-                                    <Draggable key={chapter.id} draggableId={chapter.id} index={chapterIndex}>
-                                      {provided => (
-                                        <div ref={provided.innerRef} {...provided.draggableProps} className='mt-2'>
-                                          <div className={`flex items-center p-2 ${selectedChapter === chapter.id ? 'bg-green-100' : ''}`}>
-                                            <div {...provided.dragHandleProps} className='mr-2'>
-                                              <GripVertical className='w-4 h-4 text-gray-400' />
-                                            </div>
-                                            <div className='flex-grow' onClick={() => setSelectedChapter(chapter.id)}>
-                                              <span>{chapter.name}</span>
-                                            </div>
-                                            <div className='flex space-x-2'>
-                                              <button onClick={() => addVariant(opening.id, chapter.id, currentPgn)} className='text-sm bg-purple-500 text-white px-2 py-1 rounded hover:bg-purple-600'>
-                                                + Variante
-                                              </button>
-                                              <PencilIcon className='w-5 h-5 text-gray-600 hover:text-gray-800 cursor-pointer' onClick={() => renameChapter(opening.id, chapter.id, chapter.name)} />
-                                              <TrashIcon className='w-5 h-5 text-red-500 hover:text-red-700 cursor-pointer' onClick={() => deleteChapter(opening.id, chapter.id)} />
-                                            </div>
-                                          </div>
-
-                                          {selectedChapter === chapter.id && (
-                                            <Droppable droppableId={`variants-${opening.id}-${chapter.id}`} type='VARIANT'>
-                                              {provided => (
-                                                <div ref={provided.innerRef} {...provided.droppableProps} className='ml-4'>
-                                                  {chapter.variants.map((variant, variantIndex) => (
-                                                    <Draggable key={variant.id} draggableId={variant.id} index={variantIndex}>
-                                                      {provided => (
-                                                        <div ref={provided.innerRef} {...provided.draggableProps} className={`flex items-center p-2 ${selectedVariant === variant.id ? 'bg-purple-100' : ''}`}>
-                                                          <div {...provided.dragHandleProps} className='mr-2'>
-                                                            <GripVertical className='w-4 h-4 text-gray-400' />
-                                                          </div>
-                                                          <div className='flex-grow' onClick={() => setSelectedVariant(variant.id)}>
-                                                            {variant.name}
-                                                          </div>
-                                                          <div className='flex space-x-2'>
-                                                            <PencilIcon className='w-5 h-5 text-gray-600 hover:text-gray-800 cursor-pointer' onClick={() => renameVariant(opening.id, chapter.id, variant.id, variant.name)} />
-                                                            <TrashIcon className='w-5 h-5 text-red-500 hover:text-red-700 cursor-pointer' onClick={() => deleteVariant(opening.id, chapter.id, variant.id)} />
-                                                          </div>
-                                                        </div>
-                                                      )}
-                                                    </Draggable>
-                                                  ))}
-                                                  {provided.placeholder}
-                                                </div>
-                                              )}
-                                            </Droppable>
-                                          )}
-                                        </div>
-                                      )}
-                                    </Draggable>
-                                  ))}
-                                  {provided.placeholder}
-                                </div>
-                              )}
-                            </Droppable>
+  const handleBackToTree = () => {
+    setViewMode('tree');
+  };
+  
+  
+  const TreeView = () => (
+    <div className="w-full p-4">
+      <DatabaseControls openings={openings} onImport={handleDatabaseImport} />
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <Droppable droppableId="openings" type="OPENING">
+          {(provided) => (
+            <div ref={provided.innerRef} {...provided.droppableProps}>
+              {openings.map((opening, index) => (
+                <Draggable key={opening.id} draggableId={opening.id} index={index}>
+                  {(provided) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.draggableProps}
+                      className="mb-4 bg-white rounded-lg shadow"
+                    >
+                      <div className={`flex items-center p-3 border-b ${
+                        selectedOpening === opening.id ? 'bg-blue-50' : ''
+                      }`}>
+                        <div {...provided.dragHandleProps} className="mr-2">
+                          <GripVertical className="w-4 h-4 text-gray-400" />
+                        </div>
+                        <div
+                          className="flex-grow cursor-pointer"
+                          onClick={() => setSelectedOpening(
+                            selectedOpening === opening.id ? null : opening.id
                           )}
+                        >
+                          <span className="font-bold">{opening.name}</span>
+                        </div>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addChapter(opening.id);
+                            }}
+                            className="text-sm bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
+                          >
+                            + Kapitel
+                          </button>
+                          <PencilIcon
+                            className="w-5 h-5 text-gray-600 hover:text-gray-800 cursor-pointer"
+                            onClick={() => renameOpening(opening.id, opening.name)}
+                          />
+                          <TrashIcon
+                            className="w-5 h-5 text-red-500 hover:text-red-700 cursor-pointer"
+                            onClick={() => deleteOpening(opening.id)}
+                          />
+                        </div>
+                      </div>
+
+                      {selectedOpening === opening.id && (
+                        <div className="p-2">
+                          <Droppable droppableId={`chapters-${opening.id}`} type="CHAPTER">
+                            {(provided) => (
+                              <div ref={provided.innerRef} {...provided.droppableProps}>
+                                {opening.chapters.map((chapter, chapterIndex) => (
+                                  <Draggable
+                                    key={chapter.id}
+                                    draggableId={chapter.id}
+                                    index={chapterIndex}
+                                  >
+                                    {(provided) => (
+                                      <div 
+                                        ref={provided.innerRef}
+                                        {...provided.draggableProps}
+                                        className="ml-4 mt-2 bg-gray-50 rounded"
+                                      >
+                                        <div className={`flex items-center p-2 ${
+                                          selectedChapter === chapter.id ? 'bg-green-50' : ''
+                                        }`}>
+                                          <div {...provided.dragHandleProps} className="mr-2">
+                                            <GripVertical className="w-4 h-4 text-gray-400" />
+                                          </div>
+                                          <div
+                                            className="flex-grow cursor-pointer"
+                                            onClick={() => setSelectedChapter(
+                                              selectedChapter === chapter.id ? null : chapter.id
+                                            )}
+                                          >
+                                            {chapter.name}
+                                          </div>
+                                          <div className="flex space-x-2">
+                                            <button
+                                              onClick={() => addVariant(opening.id, chapter.id, currentPgn)}
+                                              className="text-sm bg-purple-500 text-white px-2 py-1 rounded hover:bg-purple-600"
+                                            >
+                                              + Variante
+                                            </button>
+                                            <PencilIcon
+                                              className="w-5 h-5 text-gray-600 hover:text-gray-800 cursor-pointer"
+                                              onClick={() => renameChapter(opening.id, chapter.id, chapter.name)}
+                                            />
+                                            <TrashIcon
+                                              className="w-5 h-5 text-red-500 hover:text-red-700 cursor-pointer"
+                                              onClick={() => deleteChapter(opening.id, chapter.id)}
+                                            />
+                                          </div>
+                                        </div>
+
+                                        {selectedChapter === chapter.id && (
+                                          <Droppable
+                                            droppableId={`variants-${opening.id}-${chapter.id}`}
+                                            type="VARIANT"
+                                          >
+                                            {(provided) => (
+                                              <div
+                                                ref={provided.innerRef}
+                                                {...provided.droppableProps}
+                                                className="ml-8 my-2"
+                                              >
+                                                {chapter.variants.map((variant, variantIndex) => (
+                                                  <Draggable
+                                                    key={variant.id}
+                                                    draggableId={variant.id}
+                                                    index={variantIndex}
+                                                  >
+                                                    {(provided) => (
+                                                      <div
+                                                        ref={provided.innerRef}
+                                                        {...provided.draggableProps}
+                                                        className={`flex items-center p-2 mb-1 rounded cursor-pointer
+                                                          hover:bg-purple-50 ${
+                                                          selectedVariant === variant.id ? 'bg-purple-100' : 'bg-white'
+                                                        }`}
+                                                        onClick={() => handleVariantClick(
+                                                          variant,
+                                                          opening.name,
+                                                          chapter.name
+                                                        )}
+                                                      >
+                                                        <div {...provided.dragHandleProps} className="mr-2">
+                                                          <GripVertical className="w-4 h-4 text-gray-400" />
+                                                        </div>
+                                                        <span className="flex-grow">{variant.name}</span>
+                                                        <div className="flex space-x-2">
+                                                          <PencilIcon
+                                                            className="w-5 h-5 text-gray-600 hover:text-gray-800"
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              renameVariant(opening.id, chapter.id, variant.id, variant.name);
+                                                            }}
+                                                          />
+                                                          <TrashIcon
+                                                            className="w-5 h-5 text-red-500 hover:text-red-700"
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              deleteVariant(opening.id, chapter.id, variant.id);
+                                                            }}
+                                                          />
+                                                        </div>
+                                                      </div>
+                                                    )}
+                                                  </Draggable>
+                                                ))}
+                                                {provided.placeholder}
+                                              </div>
+                                            )}
+                                          </Droppable>
+                                        )}
+                                      </div>
+                                    )}
+                                  </Draggable>
+                                ))}
+                                {provided.placeholder}
+                              </div>
+                            )}
+                          </Droppable>
                         </div>
                       )}
-                    </Draggable>
-                  ))}
-                  {provided.placeholder}
-                </div>
-              )}
-            </Droppable>
-          </div>
-
-          <div className='flex-1'>
-            <ChessboardComponent initialPgn={getCurrentVariant()?.pgn || ''} onPgnChange={handlePgnChange} />
-          </div>
-        </DragDropContext>
-      </div>
+                    </div>
+                  )}
+                </Draggable>
+              ))}
+              {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
+      </DragDropContext>
     </div>
-  )
-}
+  );
 
-export default OpeningExplorer
+  // Board View Component
+  const BoardView = () => (
+    <div className="w-full flex flex-col">
+      <div className="p-4 bg-gray-100 mb-4">
+        <div className="flex items-center">
+          <button
+            onClick={handleBackToTree}
+            className="flex items-center px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 mr-4"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Zurück zur Übersicht
+          </button>
+          {selectedPath && (
+            <div className="text-gray-700">
+              <span className="font-bold">{selectedPath.openingName}</span>
+              {' → '}
+              <span className="font-bold">{selectedPath.chapterName}</span>
+              {' → '}
+              <span className="font-bold">{selectedPath.variantName}</span>
+            </div>
+          )}
+        </div>
+      </div>
+      <ChessboardComponent
+        initialPgn={getCurrentVariant()?.pgn || ''}
+        onPgnChange={handlePgnChange}
+      />
+    </div>
+  );
+
+  return (
+    <div className="h-screen bg-gray-50">
+      {viewMode === 'tree' ? <TreeView /> : <BoardView />}
+    </div>
+  );
+};
+
+export default OpeningExplorer;

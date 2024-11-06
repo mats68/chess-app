@@ -3,6 +3,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { exportPGNToFile, importPGNFromFile } from '../pgnUtils';
+import EngineAnalysis from './EngineAnalysis';
+import { PlayIcon, PauseIcon } from 'lucide-react';
 
 interface ChessboardComponentProps {
   initialPgn?: string;
@@ -17,6 +19,7 @@ const ChessboardComponent: React.FC<ChessboardComponentProps> = ({
   const [fen, setFen] = useState(game.current.fen());
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [fenHistory, setFenHistory] = useState<string[]>([game.current.fen()]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   useEffect(() => {
     if (initialPgn) {
@@ -71,17 +74,48 @@ const ChessboardComponent: React.FC<ChessboardComponentProps> = ({
     }
   };
 
+  const toggleAnalysis = () => {
+    setIsAnalyzing(!isAnalyzing);
+  };
+
   return (
     <div className="flex flex-col justify-center items-center h-screen p-4">
       <div className="flex w-full">
         <div className="w-1/2 flex justify-center">
-          <Chessboard
-            position={fen}
-            onPieceDrop={(sourceSquare, targetSquare) =>
-              handleMove(sourceSquare, targetSquare)
-            }
-            boardWidth={Math.min(500, window.innerWidth / 2 - 16)}
-          />
+          <div className="flex flex-col items-center">
+            <Chessboard
+              position={fen}
+              onPieceDrop={(sourceSquare, targetSquare) =>
+                handleMove(sourceSquare, targetSquare)
+              }
+              boardWidth={Math.min(500, window.innerWidth / 2 - 16)}
+            />
+            <div className="mt-4">
+              <button
+                onClick={toggleAnalysis}
+                className={`flex items-center px-4 py-2 rounded ${
+                  isAnalyzing 
+                    ? 'bg-red-500 hover:bg-red-600' 
+                    : 'bg-green-500 hover:bg-green-600'
+                } text-white`}
+              >
+                {isAnalyzing ? (
+                  <>
+                    <PauseIcon className="w-4 h-4 mr-2" />
+                    Analyse stoppen
+                  </>
+                ) : (
+                  <>
+                    <PlayIcon className="w-4 h-4 mr-2" />
+                    Analyse starten
+                  </>
+                )}
+              </button>
+            </div>
+            <div className="mt-4 w-full">
+              <EngineAnalysis fen={fen} isAnalysing={isAnalyzing} />
+            </div>
+          </div>
         </div>
         <div className="w-1/2 p-4 bg-gray-100 rounded shadow overflow-y-auto max-h-[80vh]">
           <h2 className="text-xl font-semibold mb-2">Zug-Notation</h2>
