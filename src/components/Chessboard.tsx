@@ -1,13 +1,45 @@
-import React, { useState, useRef } from 'react';
+// src/components/Chessboard.tsx
+import React, { useState, useRef, useEffect } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { exportPGNToFile, importPGNFromFile } from '../pgnUtils';
 
-const ChessboardComponent: React.FC = () => {
+interface ChessboardComponentProps {
+  initialPgn?: string;
+  onPgnChange?: (pgn: string) => void;
+}
+
+const ChessboardComponent: React.FC<ChessboardComponentProps> = ({ 
+  initialPgn = '', 
+  onPgnChange 
+}) => {
   const game = useRef(new Chess());
   const [fen, setFen] = useState(game.current.fen());
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [fenHistory, setFenHistory] = useState<string[]>([game.current.fen()]);
+
+  useEffect(() => {
+    if (initialPgn) {
+      try {
+        game.current.loadPgn(initialPgn);
+        setFen(game.current.fen());
+        const moves = game.current.history({ verbose: true });
+        const updatedMoveHistory = moves.map((move) => move.san);
+        const updatedFenHistory = [game.current.fen()];
+
+        game.current.reset();
+        moves.forEach((move) => {
+          game.current.move(move.san);
+          updatedFenHistory.push(game.current.fen());
+        });
+
+        setMoveHistory(updatedMoveHistory);
+        setFenHistory(updatedFenHistory);
+      } catch (error) {
+        console.error('Fehler beim Laden der PGN:', error);
+      }
+    }
+  }, [initialPgn]);
 
   const handleMove = (from: string, to: string) => {
     const move = game.current.move({ from, to });
@@ -15,16 +47,27 @@ const ChessboardComponent: React.FC = () => {
       setFen(game.current.fen());
       setMoveHistory((prev) => [...prev, move.san]);
       setFenHistory((prev) => [...prev, game.current.fen()]);
+      
+      if (onPgnChange) {
+        onPgnChange(game.current.pgn());
+      }
       return true;
     }
     return false;
   };
 
   const handleClickOnMove = (index: number) => {
-    const selectedFen = fenHistory[index + 1]; // +1, um die exakte Stellung des Zugs auszuwählen
+    const selectedFen = fenHistory[index + 1];
     if (selectedFen) {
-      game.current.load(selectedFen); // Lade die FEN der ausgewählten Stellung
-      setFen(selectedFen); // Setze die FEN auf die ausgewählte Stellung
+      game.current.load(selectedFen);
+      setFen(selectedFen);
+    }
+  };
+
+  const handleImportPGN = (event: React.ChangeEvent<HTMLInputElement>) => {
+    importPGNFromFile(event, game.current, setFen, setMoveHistory, setFenHistory);
+    if (onPgnChange) {
+      onPgnChange(game.current.pgn());
     }
   };
 
@@ -42,7 +85,7 @@ const ChessboardComponent: React.FC = () => {
         </div>
         <div className="w-1/2 p-4 bg-gray-100 rounded shadow overflow-y-auto max-h-[80vh]">
           <h2 className="text-xl font-semibold mb-2">Zug-Notation</h2>
-          <div className="grid gap-2" style={{ gridTemplateColumns: '20px 1fr 1fr' }}> 
+          <div className="grid gap-2" style={{ gridTemplateColumns: '20px 1fr 1fr' }}>
             {moveHistory.map((move, index) => {
               const moveNumber = Math.floor(index / 2) + 1;
               const isWhiteMove = index % 2 === 0;
@@ -69,17 +112,15 @@ const ChessboardComponent: React.FC = () => {
       <div className="mt-4 flex space-x-4">
         <button
           onClick={() => exportPGNToFile(game.current)}
-          className="bg-blue-500 text-white px-4 py-2 rounded"
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
         >
-          Exportiere PGN als Datei
+          Exportiere PGN
         </button>
         <input
           type="file"
           accept=".pgn"
-          onChange={(event) =>
-            importPGNFromFile(event, game.current, setFen, setMoveHistory, setFenHistory)
-          }
-          className="bg-green-500 text-white px-4 py-2 rounded cursor-pointer"
+          onChange={handleImportPGN}
+          className="bg-green-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-green-600"
         />
       </div>
     </div>

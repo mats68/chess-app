@@ -1,0 +1,26 @@
+Ich verwende React.js mit vite, Typescript, tailwind, und react-chessboard.
+
+Ich habe erst damit angefangen.
+Es ist wie eine Schach-Datenbank, ähnlich wie chessbase.
+Ich kann Züge auf dem Schachbrett links eingeben.
+Rechts ist die Notation der Züge.
+Ich kann die Züge in ein pgn-Datei exportieren (speichern) und wieder laden.
+Eine solche Partie nenne ich Variante.
+Ich kann mehrere Varianten eingeben und einer Eröffnung zuordnen.
+Ich habe folgende Struktur vorgesehen:
+- Eröffnung 1
+  - Kapitel 1
+    - Variante 1 (pgn)
+    - Variante 2 (pgn)
+    - weitere Varianten (pgn)
+  - Kapitel 2
+    - Variante 1 (pgn)
+    - Variante 2 (pgn)
+    - weitere Varianten (pgn)
+  - weitere Kapitel...
+- weitere Eröffnungen...
+
+Ich möchte zunächst die Struktur und die pgn Varianten im local Storage des Brwoser speichern können.
+Es sollen nach und nach weitere Funktionen hinzukommen.
+
+
