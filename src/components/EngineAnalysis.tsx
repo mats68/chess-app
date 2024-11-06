@@ -1,9 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Settings, ChevronUp, ChevronDown } from 'lucide-react';
+import { Settings } from 'lucide-react';
+import { Chess } from 'chess.js';
+import { Chessboard } from 'react-chessboard';
 
 interface EngineAnalysisProps {
   fen: string;
   isAnalysing: boolean;
+  onPlayMove?: (move: string) => void;
 }
 
 interface EngineVariant {
@@ -12,26 +15,26 @@ interface EngineVariant {
   depth: number;
 }
 
-const EngineAnalysis = ({ fen, isAnalysing }: EngineAnalysisProps) => {
+const EngineAnalysis = ({ fen, isAnalysing, onPlayMove }: EngineAnalysisProps) => {
   const [variants, setVariants] = useState<EngineVariant[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [depth, setDepth] = useState(20);
-  const [multiPv, setMultiPv] = useState(3);
+  const [depth, setDepth] = useState(18);
   const [showSettings, setShowSettings] = useState(false);
+  const [previewFen, setPreviewFen] = useState<string | null>(null);
+  const [previewPosition, setPreviewPosition] = useState<{x: number, y: number} | null>(null);
   
   const workerRef = useRef<Worker | null>(null);
   const isReadyRef = useRef(false);
 
-  // Initialize engine
+  // Engine Initialisierung
   useEffect(() => {
     try {
       workerRef.current = new Worker('/stockfish.js');
       workerRef.current.onmessage = handleWorkerMessage;
       workerRef.current.onerror = (e) => console.error('Stockfish Worker Error:', e);
       
-      // Initialize engine
       sendCommand('uci');
-      sendCommand(`setoption name MultiPV value ${multiPv}`);
+      sendCommand('setoption name MultiPV value 3');
       sendCommand('ucinewgame');
       sendCommand('isready');
     } catch (error) {
@@ -46,13 +49,6 @@ const EngineAnalysis = ({ fen, isAnalysing }: EngineAnalysisProps) => {
     };
   }, []);
 
-  // Update MultiPV when changed
-  useEffect(() => {
-    if (workerRef.current && isReadyRef.current) {
-      sendCommand(`setoption name MultiPV value ${multiPv}`);
-    }
-  }, [multiPv]);
-
   const sendCommand = (cmd: string) => {
     if (workerRef.current) {
       workerRef.current.postMessage(cmd);
@@ -61,47 +57,49 @@ const EngineAnalysis = ({ fen, isAnalysing }: EngineAnalysisProps) => {
 
   const handleWorkerMessage = (e: MessageEvent) => {
     const message = e.data;
-
+    
     if (message === 'readyok') {
       isReadyRef.current = true;
       return;
     }
 
-    // Handle multipv info
-    if (message.startsWith('info') && message.includes('score cp')) {
+    if (message.startsWith('info')) {
       try {
-        const pvMatch = message.match(/multipv (\d+)/);
-        const scoreMatch = message.match(/score cp (-?\d+)/);
-        const depthMatch = message.match(/depth (\d+)/);
-        const pv = message.match(/pv (.+?)(?=\s(multipv|info|bestmove)|$)/);
+        if (message.includes('multipv') && message.includes('score cp')) {
+          const pvNumber = parseInt(message.match(/multipv (\d+)/)?.[1] || '1');
+          const score = parseInt(message.match(/score cp (-?\d+)/)?.[1] || '0') / 100;
+          const currentDepth = parseInt(message.match(/depth (\d+)/)?.[1] || '0');
+          
+          // Verbesserte PV-Extraktion
+          let moves = '';
+          const pvIndex = message.indexOf(' pv ');
+          if (pvIndex !== -1) {
+            moves = message.slice(pvIndex + 4).split(/\s+(info|bestmove)/)[0].trim();
+          }
 
-        if (pvMatch && scoreMatch && depthMatch && pv) {
-          const pvNumber = parseInt(pvMatch[1]);
-          const score = parseInt(scoreMatch[1]) / 100;
-          const currentDepth = parseInt(depthMatch[1]);
-          const moves = pv[1].trim();
+          if (moves) {
+            setVariants(prev => {
+              const newVariants = [...prev];
+              newVariants[pvNumber - 1] = {
+                score,
+                moves,
+                depth: currentDepth
+              };
+              return newVariants;
+            });
 
-          setVariants(prev => {
-            const newVariants = [...prev];
-            newVariants[pvNumber - 1] = {
-              score,
-              moves,
-              depth: currentDepth
-            };
-            return newVariants;
-          });
-
-          if (currentDepth >= depth) {
-            setIsLoading(false);
+            if (currentDepth >= depth) {
+              setIsLoading(false);
+            }
           }
         }
       } catch (error) {
-        console.error('Error parsing engine output:', error);
+        console.error('Error parsing engine output:', error, message);
       }
     }
   };
 
-  const evaluatePosition = async () => {
+  const evaluatePosition = () => {
     if (!workerRef.current || !isReadyRef.current) return;
     
     setVariants([]);
@@ -123,106 +121,130 @@ const EngineAnalysis = ({ fen, isAnalysing }: EngineAnalysisProps) => {
       stopAnalysis();
       setVariants([]);
     }
-    
-    return () => {
-      stopAnalysis();
-    };
+    return () => stopAnalysis();
   }, [fen, isAnalysing, depth]);
 
-  const getEvaluationBar = (score: number) => {
-    // Convert evaluation to percentage (centered at 50%)
-    const percentage = 50 + Math.min(Math.max(score * 5, -50), 50);
-    return percentage;
+  const renderMoves = (uciMoves: string) => {
+    try {
+      const chess = new Chess(fen);
+      const moves = uciMoves.split(' ');
+      let result = '';
+      
+      for (const move of moves) {
+        if (!move) continue;
+        
+        const from = move.substring(0, 2);
+        const to = move.substring(2, 4);
+        const promotion = move.length > 4 ? move.substring(4) : undefined;
+        
+        try {
+          const moveObj = chess.move({ from, to, promotion });
+          if (moveObj) {
+            result += `${moveObj.san} `;
+          }
+        } catch (e) {
+          console.error('Error making move:', move, e);
+          break;
+        }
+      }
+      return result.trim();
+    } catch (error) {
+      console.error('Error rendering moves:', error);
+      return uciMoves;
+    }
+  };
+
+  const handleVariantHover = (moves: string, event: React.MouseEvent) => {
+    try {
+      const chess = new Chess(fen);
+      const movesList = moves.split(' ');
+      
+      // Führe alle Züge bis zum Hover-Punkt aus
+      for (const move of movesList) {
+        if (!move) continue;
+        const from = move.substring(0, 2);
+        const to = move.substring(2, 4);
+        const promotion = move.length > 4 ? move.substring(4) : undefined;
+        
+        try {
+          chess.move({ from, to, promotion });
+        } catch (e) {
+          break;
+        }
+      }
+      
+      // Setze Position und FEN für Vorschau
+      setPreviewFen(chess.fen());
+      
+      // Berechne Position für Vorschau-Brett
+      const rect = event.currentTarget.getBoundingClientRect();
+      setPreviewPosition({
+        x: rect.right + 10,
+        y: rect.top
+      });
+    } catch (error) {
+      console.error('Error showing preview:', error);
+    }
+  };
+
+  const handleVariantLeave = () => {
+    setPreviewFen(null);
+    setPreviewPosition(null);
   };
 
   return (
-    <div className="w-full max-w-md bg-white rounded-lg shadow p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">Engine Analyse</h3>
+    <div className="w-full font-mono text-sm p-2">
+      <div className="flex items-center justify-between mb-2 text-gray-600">
+        <span>Tiefe: {depth}</span>
         <button 
           onClick={() => setShowSettings(!showSettings)}
-          className="p-2 rounded hover:bg-gray-100"
+          className="p-1 hover:bg-gray-100 rounded"
         >
-          <Settings className="w-5 h-5" />
+          <Settings className="w-4 h-4" />
         </button>
       </div>
 
-      {showSettings && (
-        <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <label className="font-medium">Analysetiefe:</label>
-            <div className="flex items-center">
-              <button 
-                onClick={() => setDepth(d => Math.max(1, d - 1))}
-                className="p-1 hover:bg-gray-200 rounded"
-              >
-                <ChevronDown className="w-4 h-4" />
-              </button>
-              <span className="mx-2">{depth}</span>
-              <button 
-                onClick={() => setDepth(d => Math.min(30, d + 1))}
-                className="p-1 hover:bg-gray-200 rounded"
-              >
-                <ChevronUp className="w-4 h-4" />
-              </button>
+      {isLoading ? (
+        <div className="text-gray-600">Analysiere...</div>
+      ) : variants.length === 0 && isAnalysing ? (
+        <div className="text-gray-600">Warte auf Engine...</div>
+      ) : (
+        <div className="space-y-0.5">
+          {variants.map((variant, index) => (
+            <div 
+              key={index}
+              className="cursor-pointer hover:bg-gray-50 py-0.5"
+              onClick={() => onPlayMove?.(variant.moves.split(' ')[0])}
+              onMouseEnter={(e) => handleVariantHover(variant.moves, e)}
+              onMouseLeave={handleVariantLeave}
+            >
+              <span className={`font-bold ${
+                variant.score > 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {variant.score > 0 ? '+' : ''}{variant.score.toFixed(2)}
+              </span>
+              <span className="ml-2 text-gray-700">
+                {renderMoves(variant.moves)}
+              </span>
             </div>
-          </div>
-          <div className="flex items-center justify-between">
-            <label className="font-medium">Anzahl Varianten:</label>
-            <div className="flex items-center">
-              <button 
-                onClick={() => setMultiPv(m => Math.max(1, m - 1))}
-                className="p-1 hover:bg-gray-200 rounded"
-              >
-                <ChevronDown className="w-4 h-4" />
-              </button>
-              <span className="mx-2">{multiPv}</span>
-              <button 
-                onClick={() => setMultiPv(m => Math.min(5, m + 1))}
-                className="p-1 hover:bg-gray-200 rounded"
-              >
-                <ChevronUp className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          ))}
         </div>
       )}
 
-      {isLoading ? (
-        <div className="text-center py-4">
-          <span className="text-gray-600">Analysiere Position...</span>
-        </div>
-      ) : variants.length === 0 && isAnalysing ? (
-        <div className="text-center py-4">
-          <span className="text-gray-600">Warte auf Engine...</span>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {variants.map((variant, index) => (
-            <div key={index} className="border rounded p-3">
-              <div className="flex items-center mb-2">
-                <span className="text-sm font-medium text-gray-700 mr-2">
-                  Variante {index + 1}:
-                </span>
-                <span className="text-sm font-bold">
-                  {variant.score > 0 ? '+' : ''}{variant.score.toFixed(2)}
-                </span>
-              </div>
-              <div className="h-2 bg-gray-200 rounded-full overflow-hidden mb-2">
-                <div
-                  className="h-full bg-blue-500 transition-all duration-300"
-                  style={{ width: `${getEvaluationBar(variant.score)}%` }}
-                />
-              </div>
-              <div className="text-sm">
-                <span className="font-medium">Züge: </span>
-                {variant.moves.split(' ').slice(0, 5).join(' ')}...
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                Tiefe: {variant.depth}
-              </div>
-            </div>
-          ))}
+      {previewFen && previewPosition && (
+        <div 
+          className="fixed z-50 shadow-lg rounded-lg bg-white p-2"
+          style={{
+            left: previewPosition.x,
+            top: previewPosition.y,
+            width: '200px'
+          }}
+        >
+          <Chessboard 
+            position={previewFen}
+            boardWidth={200}
+            animationDuration={0}
+          />
         </div>
       )}
     </div>
