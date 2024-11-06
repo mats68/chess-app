@@ -3,7 +3,7 @@ import {Chessboard} from 'react-chessboard'
 import {Chess} from 'chess.js'
 import {exportPGNToFile, importPGNFromFile} from '../pgnUtils'
 import EngineAnalysis from './EngineAnalysis'
-import {PlayCircle, StopCircle, Copy, Check, Download, Upload} from 'lucide-react'
+import {PlayCircle, StopCircle, Copy, Check, Download, Upload, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight} from 'lucide-react'
 
 interface ChessboardComponentProps {
   initialPgn?: string
@@ -79,15 +79,6 @@ const ChessboardComponent: React.FC<ChessboardComponentProps> = ({initialPgn = '
     return false
   }
 
-  const handleClickOnMove = (index: number) => {
-    const selectedFen = fenHistory[index + 1]
-    if (selectedFen) {
-      game.current.load(selectedFen)
-      setFen(selectedFen)
-      setCurrentMoveIndex(index)
-    }
-  }
-
   const handleImportPGN = (event: React.ChangeEvent<HTMLInputElement>) => {
     importPGNFromFile(event, game.current, setFen, setMoveHistory, setFenHistory)
     if (onPgnChange) {
@@ -160,15 +151,86 @@ const ChessboardComponent: React.FC<ChessboardComponentProps> = ({initialPgn = '
   }, [])
 
   useEffect(() => {
-    setCurrentMoveIndex(moveHistory.length - 1);
-  }, [moveHistory.length]);
+    setCurrentMoveIndex(moveHistory.length - 1)
+  }, [moveHistory.length])
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    // Links: Einen Zug zurück
+    if (e.key === 'ArrowLeft') {
+      if (currentMoveIndex > -1) {
+        handleClickOnMove(currentMoveIndex - 1)
+      }
+    }
+    // Rechts: Einen Zug vor
+    else if (e.key === 'ArrowRight') {
+      if (currentMoveIndex < moveHistory.length - 1) {
+        handleClickOnMove(currentMoveIndex + 1)
+      }
+    }
+    // Start: Zurück zum Anfang
+    else if (e.key === 'Home') {
+      handleClickOnMove(-1) // Startposition
+    }
+    // Ende: Zum letzten Zug
+    else if (e.key === 'End') {
+      handleClickOnMove(moveHistory.length - 1)
+    }
+  }
+
+  // Effect für Event Listener
+  useEffect(() => {
+    // Füge Event Listener hinzu wenn Komponente mounted
+    window.addEventListener('keydown', handleKeyDown)
+
+    // Cleanup wenn Komponente unmounted
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [currentMoveIndex, moveHistory.length]) // Dependencies für den Effect
+
+  // Aktualisieren Sie die handleClickOnMove Funktion:
+  const handleClickOnMove = (index: number) => {
+    if (index === -1) {
+      // Startposition
+      game.current.load(fenHistory[0])
+      setFen(fenHistory[0])
+    } else {
+      const selectedFen = fenHistory[index + 1]
+      if (selectedFen) {
+        game.current.load(selectedFen)
+        setFen(selectedFen)
+      }
+    }
+    setCurrentMoveIndex(index)
+  }
 
   return (
     <div className='flex flex-col justify-center items-center h-screen p-4'>
       <div className='flex w-full'>
         <div className='w-1/2 flex justify-center'>
           <div className='flex flex-col items-center'>
-            <Chessboard position={fen} onPieceDrop={(sourceSquare, targetSquare) => handleMove(sourceSquare, targetSquare)} boardWidth={Math.min(500, window.innerWidth / 2 - 16)} />
+            <Chessboard
+              position={fen}
+              onPieceDrop={(sourceSquare, targetSquare) => handleMove(sourceSquare, targetSquare)}
+              boardWidth={Math.min(500, window.innerWidth / 2 - 16)}
+              animationDuration={200}
+              customDarkSquareStyle={{backgroundColor: '#b58863'}}
+              customLightSquareStyle={{backgroundColor: '#f0d9b5'}}
+            />
+            <div className='mt-2 flex justify-center space-x-2'>
+              <button onClick={() => handleClickOnMove(-1)} className='p-2 rounded hover:bg-gray-100' title='Zum Anfang (Home)'>
+                <ChevronsLeft className='w-4 h-4' />
+              </button>
+              <button onClick={() => handleClickOnMove(Math.max(-1, currentMoveIndex - 1))} className='p-2 rounded hover:bg-gray-100' title='Ein Zug zurück (←)'>
+                <ChevronLeft className='w-4 h-4' />
+              </button>
+              <button onClick={() => handleClickOnMove(Math.min(moveHistory.length - 1, currentMoveIndex + 1))} className='p-2 rounded hover:bg-gray-100' title='Ein Zug vor (→)'>
+                <ChevronRight className='w-4 h-4' />
+              </button>
+              <button onClick={() => handleClickOnMove(moveHistory.length - 1)} className='p-2 rounded hover:bg-gray-100' title='Zum Ende (End)'>
+                <ChevronsRight className='w-4 h-4' />
+              </button>
+            </div>
             <div className='mt-4 flex space-x-4'>
               {/* Analyse Button */}
               <button

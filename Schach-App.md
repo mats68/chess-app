@@ -32,3 +32,6 @@ Ich möchte mit den Pfeiltasten Vor und zurück in den Zügen navigieren können
 Ich möchte, dass die Zugnotation wie auf dem Bild aussieht. Nicht die Spaltenförmige Darstellung, sondern fließender Text. Ich kann trotzdem Auf einzelne Züge klicken. 
 
 Ich möchte das die Züge keine blaue und Rote Hintergrundfarbe haben Ich möchte lediglich, dass der aktuelle Zug aus der aktuellen Stellung ein einen leichten grauen Hintergrund hat. 
+Ich möchte mit den Vor- und Zurück-Testen in den Zügen navigieren können 
+
+Wenn ich durch die Züge navigiere, habe ich festgestellt, ist die Anzeige nicht mehr so flüssig. Mach mal verschwindet die gezogene Figur für einen kurzen Moment. 
