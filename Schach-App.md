@@ -27,3 +27,8 @@ Es sollen nach und nach weitere Funktionen hinzukommen.
 Ich will bei PGN importieren und PGN Exportieren ein Dropdown menü Mit jewils 2 Optionen: 1. PGN in Datei importieren 2. PGN in Zwischenablage importieren 
 1. PGN in Datei Exportieren 2. PGN in Zwischenablage exportieren 
 
+Ich möchte mit den Pfeiltasten Vor und zurück in den Zügen navigieren können. 
+
+Ich möchte, dass die Zugnotation wie auf dem Bild aussieht. Nicht die Spaltenförmige Darstellung, sondern fließender Text. Ich kann trotzdem Auf einzelne Züge klicken. 
+
+Ich möchte das die Züge keine blaue und Rote Hintergrundfarbe haben Ich möchte lediglich, dass der aktuelle Zug aus der aktuellen Stellung ein einen leichten grauen Hintergrund hat. 
