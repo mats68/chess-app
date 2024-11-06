@@ -15,6 +15,11 @@ interface EngineVariant {
   depth: number;
 }
 
+interface MoveWithSan {
+  uci: string;
+  san: string;
+}
+
 const EngineAnalysis = ({ fen, isAnalysing, onPlayMove }: EngineAnalysisProps) => {
   const [variants, setVariants] = useState<EngineVariant[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -25,7 +30,6 @@ const EngineAnalysis = ({ fen, isAnalysing, onPlayMove }: EngineAnalysisProps) =
   
   const workerRef = useRef<Worker | null>(null);
   const isReadyRef = useRef(false);
-
   // Engine Initialisierung
   useEffect(() => {
     try {
@@ -187,9 +191,101 @@ const EngineAnalysis = ({ fen, isAnalysing, onPlayMove }: EngineAnalysisProps) =
     }
   };
 
+  const convertMovesToSanWithPositions = (uciMoves: string): MoveWithSan[] => {
+    try {
+      const chess = new Chess(fen);
+      const moves = uciMoves.split(' ');
+      const result: MoveWithSan[] = [];
+      
+      for (const move of moves) {
+        if (!move) continue;
+        
+        const from = move.substring(0, 2);
+        const to = move.substring(2, 4);
+        const promotion = move.length > 4 ? move.substring(4) : undefined;
+        
+        try {
+          const moveObj = chess.move({ from, to, promotion });
+          if (moveObj) {
+            result.push({
+              uci: move,
+              san: moveObj.san
+            });
+          }
+        } catch (e) {
+          break;
+        }
+      }
+      return result;
+    } catch (error) {
+      console.error('Error converting moves:', error);
+      return [];
+    }
+  };
+
+  const handleMoveHover = (moves: string, upToIndex: number, event: React.MouseEvent) => {
+    try {
+      const chess = new Chess(fen);
+      const movesList = moves.split(' ');
+      
+      // Führe nur Züge bis zum Hover-Index aus
+      for (let i = 0; i <= upToIndex; i++) {
+        const move = movesList[i];
+        if (!move) continue;
+        
+        const from = move.substring(0, 2);
+        const to = move.substring(2, 4);
+        const promotion = move.length > 4 ? move.substring(4) : undefined;
+        
+        try {
+          chess.move({ from, to, promotion });
+        } catch (e) {
+          break;
+        }
+      }
+      
+      setPreviewFen(chess.fen());
+      
+      const rect = event.currentTarget.getBoundingClientRect();
+      setPreviewPosition({
+        x: rect.right + 10,
+        y: Math.min(rect.top, window.innerHeight - 220) // Verhindert, dass Brett unten aus dem Fenster läuft
+      });
+    } catch (error) {
+      console.error('Error showing preview:', error);
+    }
+  };
+
   const handleVariantLeave = () => {
     setPreviewFen(null);
     setPreviewPosition(null);
+  };
+
+  const renderVariant = (variant: EngineVariant, index: number) => {
+    const moves = convertMovesToSanWithPositions(variant.moves);
+    
+    return (
+      <div key={index} className="py-0.5">
+        <span className={`font-bold ${
+          variant.score > 0 ? 'text-green-600' : 'text-red-600'
+        }`}>
+          {variant.score > 0 ? '+' : ''}{variant.score.toFixed(2)}
+        </span>
+        <span className="ml-2 text-gray-700">
+          {moves.map((move, moveIndex) => (
+            <span
+              key={moveIndex}
+              className="cursor-pointer hover:bg-gray-200 px-1 rounded"
+              onClick={() => onPlayMove?.(moves[0].uci)}
+              onMouseEnter={(e) => handleMoveHover(variant.moves, moveIndex, e)}
+              onMouseLeave={handleVariantLeave}
+            >
+              {move.san}
+            </span>
+          ))}
+        </span>
+      </div>
+    );
   };
 
   return (
@@ -210,24 +306,7 @@ const EngineAnalysis = ({ fen, isAnalysing, onPlayMove }: EngineAnalysisProps) =
         <div className="text-gray-600">Warte auf Engine...</div>
       ) : (
         <div className="space-y-0.5">
-          {variants.map((variant, index) => (
-            <div 
-              key={index}
-              className="cursor-pointer hover:bg-gray-50 py-0.5"
-              onClick={() => onPlayMove?.(variant.moves.split(' ')[0])}
-              onMouseEnter={(e) => handleVariantHover(variant.moves, e)}
-              onMouseLeave={handleVariantLeave}
-            >
-              <span className={`font-bold ${
-                variant.score > 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {variant.score > 0 ? '+' : ''}{variant.score.toFixed(2)}
-              </span>
-              <span className="ml-2 text-gray-700">
-                {renderMoves(variant.moves)}
-              </span>
-            </div>
-          ))}
+          {variants.map((variant, index) => renderVariant(variant, index))}
         </div>
       )}
 
