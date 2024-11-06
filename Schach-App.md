@@ -35,3 +35,14 @@ Ich möchte das die Züge keine blaue und Rote Hintergrundfarbe haben Ich möcht
 Ich möchte mit den Vor- und Zurück-Testen in den Zügen navigieren können 
 
 Wenn ich durch die Züge navigiere, habe ich festgestellt, ist die Anzeige nicht mehr so flüssig. Mach mal verschwindet die gezogene Figur für einen kurzen Moment. 
+Die Anzeige ist jetzt deutlich besser, aber noch nicht hundertprozentig Flüssig .
+
+Ja ich möchte gerne folgende Verbesserungen:
+- Einstellbare Animationsgeschwindigkeit
+- Option zum Deaktivieren der Animation
+- Audio-Feedback bei Zügen
+Möchte, dass Der Benutzer diese Verbesserungen als Optionen einstellen kann.
+Man könnte einen Button Optionen machen, Rechts neben den P importieren Button. 
+
+Möchte auch Tooltips mit Tastaturkürzeln
+
