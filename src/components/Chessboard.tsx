@@ -22,6 +22,10 @@ const ChessboardComponent: React.FC<ChessboardComponentProps> = ({initialPgn = '
   const [showImportMenu, setShowImportMenu] = useState(false)
   const [currentMoveIndex, setCurrentMoveIndex] = useState<number>(-1)
 
+  const [showComments, setShowComments] = useState(false)
+  const [moveComments, setMoveComments] = useState<Record<number, string>>({})
+  const [currentComment, setCurrentComment] = useState('')
+
   const copyTimeoutRef = useRef<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const exportMenuRef = useRef<HTMLDivElement>(null)
@@ -221,6 +225,16 @@ const ChessboardComponent: React.FC<ChessboardComponentProps> = ({initialPgn = '
     )
   }
 
+  const handleCommentChange = (comment: string) => {
+    setCurrentComment(comment)
+    if (currentMoveIndex >= 0) {
+      setMoveComments(prev => ({
+        ...prev,
+        [currentMoveIndex]: comment,
+      }))
+    }
+  }
+
   return (
     <div className='container mx-auto p-4'>
       {/* Haupt-Container mit Flex */}
@@ -323,35 +337,93 @@ const ChessboardComponent: React.FC<ChessboardComponentProps> = ({initialPgn = '
             <EngineAnalysis fen={fen} isAnalysing={isAnalyzing} onPlayMove={handleMove} />
           </div>
         </div>
-        <div className='flex-1 rounded shadow p-4 min-h-[300px] overflow-auto'>
+        <div className='flex-1 rounded shadow p-4 min-h-[300px] overflow-auto flex flex-col'>
           <div className='whitespace-normal break-words flex flex-wrap'>
             {Array.from({length: Math.ceil(moveHistory.length / 2)}).map((_, idx) => {
               const moveNumber = idx + 1
-              const whiteMove = moveHistory[idx * 2]
-              const blackMove = moveHistory[idx * 2 + 1]
+              const whiteIdx = idx * 2
+              const blackIdx = idx * 2 + 1
+              const whiteMove = moveHistory[whiteIdx]
+              const blackMove = moveHistory[blackIdx]
+              const whiteComment = moveComments[whiteIdx]
+              const blackComment = moveComments[blackIdx]
 
+              // Wenn es Kommentare gibt, zeige als Block an
+              if (whiteComment || blackComment) {
+                return (
+                  <div key={moveNumber} className='w-full'>
+                    <div className='whitespace-nowrap inline-flex mr-2'>
+                      <span>{`${moveNumber}.`}</span>
+                      <span onClick={() => handleClickOnMove(whiteIdx)} className={`cursor-pointer rounded px-0.5 hover:bg-gray-100 inline-block ${currentMoveIndex === whiteIdx ? 'bg-gray-300' : ''}`}>
+                        {convertToSymbol(whiteMove)}
+                      </span>
+                    </div>
+
+                    {/* Kommentar für weißen Zug */}
+                    {whiteComment && (
+                      <div>
+                        <div className='ml-4 text-gray-600'>{whiteComment}</div>
+                        {/* Schwarzer Zug nach Kommentar auf neuer Zeile */}
+                        {blackMove && (
+                          <div className='whitespace-nowrap mt-1'>
+                            <span>{`${moveNumber}...`}</span>
+                            <span onClick={() => handleClickOnMove(blackIdx)} className={`cursor-pointer rounded px-0.5 hover:bg-gray-100 inline-block ${currentMoveIndex === blackIdx ? 'bg-gray-300' : ''}`}>
+                              {convertToSymbol(blackMove)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Wenn kein weißer Kommentar, zeige schwarzen Zug normal */}
+                    {!whiteComment && blackMove && (
+                      <>
+                        <span onClick={() => handleClickOnMove(blackIdx)} className={`cursor-pointer rounded px-0.5 hover:bg-gray-100 inline-block ml-1 ${currentMoveIndex === blackIdx ? 'bg-gray-300' : ''}`}>
+                          {convertToSymbol(blackMove)}
+                        </span>
+                        {/* Kommentar für schwarzen Zug */}
+                        {blackComment && <div className='ml-4 text-gray-600'>{blackComment}</div>}
+                      </>
+                    )}
+                  </div>
+                )
+              }
+
+              // Wenn keine Kommentare, zeige Züge normal fließend an
               return (
-                // Container für ein Zugpaar - nicht brechend
-                <div key={moveNumber} className='whitespace-nowrap mr-2 mb-1'>
-                  {/* Zugnummer und weißer Zug */}
+                <div key={moveNumber} className='whitespace-nowrap mr-2 mb-1 inline-flex'>
                   <span>{`${moveNumber}.`}</span>
-                  <span onClick={() => handleClickOnMove(idx * 2)} className={`cursor-pointer rounded px-0.5 hover:bg-gray-100 inline-block ${currentMoveIndex === idx * 2 ? 'bg-gray-300' : ''}`}>
+                  <span onClick={() => handleClickOnMove(whiteIdx)} className={`cursor-pointer rounded px-0.5 hover:bg-gray-100 inline-block ${currentMoveIndex === whiteIdx ? 'bg-gray-300' : ''}`}>
                     {convertToSymbol(whiteMove)}
                   </span>
-                  {/* Schwarzer Zug, falls vorhanden */}
                   {blackMove && (
-                    <>
-                      {/* <span className='mr-1'> </span> */}
-                      <span onClick={() => handleClickOnMove(idx * 2 + 1)} className={`cursor-pointer rounded px-0.5 hover:bg-gray-100 inline-block ${currentMoveIndex === idx * 2 + 1 ? 'bg-gray-300' : ''}`}>
-                        {convertToSymbol(blackMove)}
-                      </span>
-                    </>
+                    <span onClick={() => handleClickOnMove(blackIdx)} className={`cursor-pointer rounded px-0.5 hover:bg-gray-100 inline-block ml-1 ${currentMoveIndex === blackIdx ? 'bg-gray-300' : ''}`}>
+                      {convertToSymbol(blackMove)}
+                    </span>
                   )}
                 </div>
               )
             })}
           </div>
-        </div>
+
+          {/* Kommentar Editor und Button bleiben unverändert */}
+          {showComments && (
+            <div className='mt-4'>
+              <textarea
+                value={currentMoveIndex >= 0 ? moveComments[currentMoveIndex] || '' : ''}
+                onChange={e => handleCommentChange(e.target.value)}
+                placeholder='Kommentar zum aktuellen Zug...'
+                className='w-full p-2 border rounded resize-y min-h-[100px]'
+              />
+            </div>
+          )}
+
+          <div className='mt-4'>
+            <button onClick={() => setShowComments(!showComments)} className={`px-4 py-2 rounded ${showComments ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>
+              Kommentare {showComments ? 'deaktivieren' : 'aktivieren'}
+            </button>
+          </div>
+        </div>{' '}
       </div>
     </div>
   )

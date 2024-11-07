@@ -4,8 +4,10 @@ Ideen:
 - Bei Variante eine Ausgangs-Stellung definierbar (mit Brett),
 z.B 1.d4c52.d5e53.♘c3d6
 Falls nun eine neue Partie erstellt wird, wird mit diesen Zügen erstellt
-- Auto-Sortierfunktion: Bei Import PGN wird in die richtige Variante eingefügt.
-
+- ((Auto-Sortierfunktion: Bei Import PGN wird in die richtige Variante eingefügt. (ev. problem zugumstellungen ?)))
+- Suchen von stellung mit brett und fen einfüge funktion
+- variante bearbeien: züge abschneiden
+  - variante aus engine einfügen
 
 
 ===
@@ -47,3 +49,13 @@ Ich möchte das die Züge keine blaue und Rote Hintergrundfarbe haben Ich möcht
 Ich möchte mit den Vor- und Zurück-Testen in den Zügen navigieren können 
 
 Wenn ich durch die Züge navigiere, habe ich festgestellt, ist die Anzeige nicht mehr so flüssig. Mach mal verschwindet die gezogene Figur für einen kurzen Moment. 
+
+
+Ich möchte Kommentare pro Zug in der Notation einfügen können (Siehe Image)
+Ich habe unten bei der Notation einen Button "Kommentare aktivieren". Falls ich den Button drücke, ist der Kommentarmodus aktiv, der Button wird anders dargestellt (aktiviert) und ein Memofeld
+wird angezeigt unterhalb der notation, aber oberhalb des Buttons. 
+Wenn ich das Memofeld editiere, wird der Kommentar für den aktuellen Zug bearbeitet. Das Memofeld bleibt weiterhin
+aktiv und ich kann andere Züge kommentieren.
+Wenn ich den Button nochmals drücke, verswchwindet das Memofeld und der Kommentarmodus is deaktiviert und der Button wird normal dargestellt.
+Beachte bitte, dass wenn ich einen Weissen Zug kommentiere, dann bricht es beim weissen Zug um und 
+die Notation mit dem schwarzen Zug mit "... " weitergeführt.
