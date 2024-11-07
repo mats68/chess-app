@@ -1,6 +1,7 @@
 ===
 
 Ideen: 
+- edit-button: bei neuer variante automatisch editmodus
 - Bei Variante eine Ausgangs-Stellung definierbar (mit Brett),
 z.B 1.d4c52.d5e53.♘c3d6
 Falls nun eine neue Partie erstellt wird, wird mit diesen Zügen erstellt

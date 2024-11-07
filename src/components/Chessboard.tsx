@@ -292,7 +292,7 @@ const ChessboardComponent: React.FC<ChessboardComponentProps> = ({initialPgn = '
           const blackComment = comments[blackIdx]
 
           // Wenn es Kommentare gibt, zeige als Block an
-          if ((whiteComment || blackComment) && showComments) {
+          if (whiteComment || blackComment) {
             return (
               <div key={moveNumber} className='w-full'>
                 <div className='whitespace-nowrap inline-flex mr-2'>
@@ -520,27 +520,17 @@ const ChessboardComponent: React.FC<ChessboardComponentProps> = ({initialPgn = '
 
         {/* Zugliste und Kommentare */}
         <div className='flex-1 rounded shadow p-4 min-h-[300px] overflow-auto flex flex-col'>
-          <div className='flex-grow'>{renderMoveList()}</div>
+          <div className='flex-grow mb-4'>{renderMoveList()}</div>
 
-          <div className='mt-4 space-y-2'>
-            <div>
-              <button onClick={() => setShowComments(!showComments)} className={`px-4 py-2 rounded ${showComments ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>
-                Kommentare {showComments ? 'ausblenden' : 'anzeigen'}
-              </button>
-            </div>
-
-            {showComments && (
-              <div className='mt-2'>
-                <textarea
-                  value={currentComment}
-                  onChange={e => handleCommentChange(e.target.value)}
-                  placeholder={currentMoveIndex >= 0 ? 'Kommentar zum aktuellen Zug...' : 'Wählen Sie einen Zug aus, um einen Kommentar hinzuzufügen'}
-                  disabled={currentMoveIndex < 0}
-                  className='w-full p-2 border rounded resize-y min-h-[100px]
-                    disabled:bg-gray-100 disabled:text-gray-500'
-                />
-              </div>
-            )}
+          <div className='border-t pt-4'>
+            <textarea
+              value={currentComment}
+              onChange={e => handleCommentChange(e.target.value)}
+              placeholder={currentMoveIndex >= 0 ? 'Kommentar zum aktuellen Zug...' : 'Wählen Sie einen Zug aus, um einen Kommentar hinzuzufügen'}
+              disabled={currentMoveIndex < 0}
+              className='w-full p-2 border rounded resize-y min-h-[100px]
+              disabled:bg-gray-100 disabled:text-gray-500'
+            />
           </div>
         </div>
       </div>
