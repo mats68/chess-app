@@ -204,128 +204,154 @@ const ChessboardComponent: React.FC<ChessboardComponentProps> = ({initialPgn = '
     setCurrentMoveIndex(index)
   }
 
+  const convertToSymbol = (move: string): string => {
+    return (
+      move
+        // Figuren
+        .replace(/K/g, '♔')
+        .replace(/Q/g, '♕')
+        .replace(/R/g, '♖')
+        .replace(/B/g, '♗')
+        .replace(/N/g, '♘')
+      // Optional: Schlagzeichen verschönern
+      // .replace(/x/g, '×')
+      // Optional: Schach und Matt
+      // .replace(/\+/g, '†')
+      // .replace(/#/g, '‡')
+    )
+  }
+
   return (
-    <div className='flex flex-col justify-center items-center h-screen p-4'>
-      <div className='flex w-full'>
-        <div className='w-1/2 flex justify-center'>
-          <div className='flex flex-col items-center'>
-            <Chessboard
-              position={fen}
-              onPieceDrop={(sourceSquare, targetSquare) => handleMove(sourceSquare, targetSquare)}
-              boardWidth={Math.min(500, window.innerWidth / 2 - 16)}
-              animationDuration={200}
-              customDarkSquareStyle={{backgroundColor: '#b58863'}}
-              customLightSquareStyle={{backgroundColor: '#f0d9b5'}}
-            />
-            <div className='mt-2 flex justify-center space-x-2'>
-              <button onClick={() => handleClickOnMove(-1)} className='p-2 rounded hover:bg-gray-100' title='Zum Anfang (Home)'>
-                <ChevronsLeft className='w-4 h-4' />
+    <div className='container mx-auto p-4'>
+      {/* Haupt-Container mit Flex */}
+      <div className='flex flex-col lg:flex-row gap-4'>
+        {/* Linke Seite mit Brett und Engine - feste Breite */}
+        <div className='flex-none w-[450px]'>
+          <Chessboard
+            position={fen}
+            onPieceDrop={(sourceSquare, targetSquare) => handleMove(sourceSquare, targetSquare)}
+            boardWidth={450}
+            animationDuration={200}
+            customDarkSquareStyle={{backgroundColor: '#b58863'}}
+            customLightSquareStyle={{backgroundColor: '#f0d9b5'}}
+          />
+          <div className='mt-2 flex justify-center space-x-2'>
+            <button onClick={() => handleClickOnMove(-1)} className='p-2 rounded hover:bg-gray-100' title='Zum Anfang (Home)'>
+              <ChevronsLeft className='w-4 h-4' />
+            </button>
+            <button onClick={() => handleClickOnMove(Math.max(-1, currentMoveIndex - 1))} className='p-2 rounded hover:bg-gray-100' title='Ein Zug zurück (←)'>
+              <ChevronLeft className='w-4 h-4' />
+            </button>
+            <button onClick={() => handleClickOnMove(Math.min(moveHistory.length - 1, currentMoveIndex + 1))} className='p-2 rounded hover:bg-gray-100' title='Ein Zug vor (→)'>
+              <ChevronRight className='w-4 h-4' />
+            </button>
+            <button onClick={() => handleClickOnMove(moveHistory.length - 1)} className='p-2 rounded hover:bg-gray-100' title='Zum Ende (End)'>
+              <ChevronsRight className='w-4 h-4' />
+            </button>
+          </div>
+          <div className='mt-4 flex space-x-4'>
+            {/* Analyse Button */}
+            <button
+              onClick={() => setIsAnalyzing(!isAnalyzing)}
+              className={`flex items-center justify-center w-10 h-10 rounded ${isAnalyzing ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} text-white`}
+              title={isAnalyzing ? 'Analyse stoppen' : 'Analyse starten'}>
+              {isAnalyzing ? <StopCircle className='w-6 h-6' /> : <PlayCircle className='w-6 h-6' />}
+            </button>
+            {/* FEN Button */}
+            <button onClick={copyFen} className='flex items-center justify-center w-10 h-10 bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors' title='FEN kopieren'>
+              {showCopied ? <Check className='w-6 h-6' /> : <Copy className='w-6 h-6' />}
+            </button>
+            {/* Export Dropdown */}
+            <div className='relative' ref={exportMenuRef}>
+              <button onClick={() => setShowExportMenu(!showExportMenu)} className='flex items-center justify-center w-10 h-10 bg-blue-500 hover:bg-blue-600 text-white rounded' title='PGN exportieren'>
+                <Download className='w-6 h-6' />
               </button>
-              <button onClick={() => handleClickOnMove(Math.max(-1, currentMoveIndex - 1))} className='p-2 rounded hover:bg-gray-100' title='Ein Zug zurück (←)'>
-                <ChevronLeft className='w-4 h-4' />
-              </button>
-              <button onClick={() => handleClickOnMove(Math.min(moveHistory.length - 1, currentMoveIndex + 1))} className='p-2 rounded hover:bg-gray-100' title='Ein Zug vor (→)'>
-                <ChevronRight className='w-4 h-4' />
-              </button>
-              <button onClick={() => handleClickOnMove(moveHistory.length - 1)} className='p-2 rounded hover:bg-gray-100' title='Zum Ende (End)'>
-                <ChevronsRight className='w-4 h-4' />
-              </button>
+              {showExportMenu && (
+                <div className='absolute z-10 bottom-full mb-2 py-2 w-64 bg-white rounded-lg shadow-xl border'>
+                  <button
+                    onClick={() => {
+                      exportPGNToFile(game.current)
+                      setShowExportMenu(false)
+                    }}
+                    className='w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center'>
+                    <Download className='w-4 h-4 mr-2' />
+                    PGN in Datei exportieren
+                  </button>
+                  <button
+                    onClick={() => {
+                      copyPgnToClipboard()
+                      setShowExportMenu(false)
+                    }}
+                    className='w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center'>
+                    <Copy className='w-4 h-4 mr-2' />
+                    PGN in Zwischenablage kopieren
+                  </button>
+                </div>
+              )}
             </div>
-            <div className='mt-4 flex space-x-4'>
-              {/* Analyse Button */}
-              <button
-                onClick={() => setIsAnalyzing(!isAnalyzing)}
-                className={`flex items-center justify-center w-10 h-10 rounded ${isAnalyzing ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} text-white`}
-                title={isAnalyzing ? 'Analyse stoppen' : 'Analyse starten'}>
-                {isAnalyzing ? <StopCircle className='w-6 h-6' /> : <PlayCircle className='w-6 h-6' />}
+            {/* Import Dropdown */}
+            <div className='relative' ref={importMenuRef}>
+              <button onClick={() => setShowImportMenu(!showImportMenu)} className='flex items-center justify-center w-10 h-10 bg-green-500 hover:bg-green-600 text-white rounded' title='PGN importieren'>
+                <Upload className='w-6 h-6' />
               </button>
-              {/* FEN Button */}
-              <button onClick={copyFen} className='flex items-center justify-center w-10 h-10 bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors' title='FEN kopieren'>
-                {showCopied ? <Check className='w-6 h-6' /> : <Copy className='w-6 h-6' />}
-              </button>
-              {/* Export Dropdown */}
-              <div className='relative' ref={exportMenuRef}>
-                <button onClick={() => setShowExportMenu(!showExportMenu)} className='flex items-center justify-center w-10 h-10 bg-blue-500 hover:bg-blue-600 text-white rounded' title='PGN exportieren'>
-                  <Download className='w-6 h-6' />
-                </button>
-                {showExportMenu && (
-                  <div className='absolute z-10 bottom-full mb-2 py-2 w-64 bg-white rounded-lg shadow-xl border'>
-                    <button
-                      onClick={() => {
-                        exportPGNToFile(game.current)
-                        setShowExportMenu(false)
-                      }}
-                      className='w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center'>
-                      <Download className='w-4 h-4 mr-2' />
-                      PGN in Datei exportieren
-                    </button>
-                    <button
-                      onClick={() => {
-                        copyPgnToClipboard()
-                        setShowExportMenu(false)
-                      }}
-                      className='w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center'>
-                      <Copy className='w-4 h-4 mr-2' />
-                      PGN in Zwischenablage kopieren
-                    </button>
-                  </div>
-                )}
-              </div>
-              {/* Import Dropdown */}
-              <div className='relative' ref={importMenuRef}>
-                <button onClick={() => setShowImportMenu(!showImportMenu)} className='flex items-center justify-center w-10 h-10 bg-green-500 hover:bg-green-600 text-white rounded' title='PGN importieren'>
-                  <Upload className='w-6 h-6' />
-                </button>
-                {showImportMenu && (
-                  <div className='absolute z-10 bottom-full mb-2 py-2 w-64 bg-white rounded-lg shadow-xl border'>
-                    <button
-                      onClick={() => {
-                        fileInputRef.current?.click()
-                        setShowImportMenu(false)
-                      }}
-                      className='w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center'>
-                      <Upload className='w-4 h-4 mr-2' />
-                      PGN aus Datei importieren
-                    </button>
-                    <button
-                      onClick={() => {
-                        importPgnFromClipboard()
-                        setShowImportMenu(false)
-                      }}
-                      className='w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center'>
-                      <Copy className='w-4 h-4 mr-2' />
-                      PGN aus Zwischenablage importieren
-                    </button>
-                  </div>
-                )}
-                <input ref={fileInputRef} type='file' accept='.pgn' onChange={handleImportPGN} className='hidden' />
-              </div>{' '}
-            </div>
-            <div className='mt-4 w-full'>
-              <EngineAnalysis fen={fen} isAnalysing={isAnalyzing} onPlayMove={handleMove} />
-            </div>
+              {showImportMenu && (
+                <div className='absolute z-10 bottom-full mb-2 py-2 w-64 bg-white rounded-lg shadow-xl border'>
+                  <button
+                    onClick={() => {
+                      fileInputRef.current?.click()
+                      setShowImportMenu(false)
+                    }}
+                    className='w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center'>
+                    <Upload className='w-4 h-4 mr-2' />
+                    PGN aus Datei importieren
+                  </button>
+                  <button
+                    onClick={() => {
+                      importPgnFromClipboard()
+                      setShowImportMenu(false)
+                    }}
+                    className='w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center'>
+                    <Copy className='w-4 h-4 mr-2' />
+                    PGN aus Zwischenablage importieren
+                  </button>
+                </div>
+              )}
+              <input ref={fileInputRef} type='file' accept='.pgn' onChange={handleImportPGN} className='hidden' />
+            </div>{' '}
+          </div>
+          <div className='mt-4 w-full'>
+            <EngineAnalysis fen={fen} isAnalysing={isAnalyzing} onPlayMove={handleMove} />
           </div>
         </div>
-        <div className='w-1/2 p-4 bg-gray-100 rounded shadow overflow-y-auto max-h-[80vh]'>
-          <h2 className='text-xl font-semibold mb-2'>Zug-Notation</h2>
-          <div className='whitespace-pre-wrap'>
-            {moveHistory.reduce((acc, move, index) => {
-              const moveNumber = Math.floor(index / 2) + 1
-              const isWhiteMove = index % 2 === 0
+        <div className='flex-1 rounded shadow p-4 min-h-[300px] overflow-auto'>
+          <div className='whitespace-normal break-words flex flex-wrap'>
+            {Array.from({length: Math.ceil(moveHistory.length / 2)}).map((_, idx) => {
+              const moveNumber = idx + 1
+              const whiteMove = moveHistory[idx * 2]
+              const blackMove = moveHistory[idx * 2 + 1]
 
               return (
-                <>
-                  {acc}
-                  {isWhiteMove ? <span className='mr-1'>{`${moveNumber}.`}</span> : null}
-                  <span onClick={() => handleClickOnMove(index)} className={`cursor-pointer rounded px-1 hover:bg-gray-100 ${currentMoveIndex === index ? 'bg-gray-200' : ''}`}>
-                    {move}
+                // Container für ein Zugpaar - nicht brechend
+                <div key={moveNumber} className='whitespace-nowrap mr-2 mb-1'>
+                  {/* Zugnummer und weißer Zug */}
+                  <span>{`${moveNumber}.`}</span>
+                  <span onClick={() => handleClickOnMove(idx * 2)} className={`cursor-pointer rounded px-0.5 hover:bg-gray-100 inline-block ${currentMoveIndex === idx * 2 ? 'bg-gray-300' : ''}`}>
+                    {convertToSymbol(whiteMove)}
                   </span>
-                  <span className='mr-1'> </span>
-                </>
+                  {/* Schwarzer Zug, falls vorhanden */}
+                  {blackMove && (
+                    <>
+                      {/* <span className='mr-1'> </span> */}
+                      <span onClick={() => handleClickOnMove(idx * 2 + 1)} className={`cursor-pointer rounded px-0.5 hover:bg-gray-100 inline-block ${currentMoveIndex === idx * 2 + 1 ? 'bg-gray-300' : ''}`}>
+                        {convertToSymbol(blackMove)}
+                      </span>
+                    </>
+                  )}
+                </div>
               )
-            }, <></>)}
+            })}
           </div>
-        </div>{' '}
+        </div>
       </div>
     </div>
   )

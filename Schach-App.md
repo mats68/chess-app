@@ -1,3 +1,15 @@
+===
+
+Ideen: 
+- Bei Variante eine Ausgangs-Stellung definierbar (mit Brett),
+z.B 1.d4c52.d5e53.♘c3d6
+Falls nun eine neue Partie erstellt wird, wird mit diesen Zügen erstellt
+- Auto-Sortierfunktion: Bei Import PGN wird in die richtige Variante eingefügt.
+
+
+
+===
+
 Ich verwende React.js mit vite, Typescript, tailwind, und react-chessboard.
 
 Ich habe erst damit angefangen.
