@@ -1,35 +1,44 @@
-import React, {useState, useRef, useEffect} from 'react'
+import React, {useRef, useState, useEffect, memo} from 'react'
 import {Chessboard} from 'react-chessboard'
 import {Chess} from 'chess.js'
 import {exportPGNToFile, importPGNFromFile} from '../pgnUtils'
 import EngineAnalysis from './EngineAnalysis'
-import {PlayCircle, StopCircle, Copy, Check, Download, Upload, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight} from 'lucide-react'
+import {PlayCircle, StopCircle, Copy, Check, Download, Upload, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowLeft, Save} from 'lucide-react'
+import {usePgnProcessor} from '../utils/pgnProcessor'
+import CommentEditor from './CommentEditor'
 
 interface ChessboardComponentProps {
   initialPgn?: string
-  onPgnChange?: (pgn: string) => void
+  onSave?: (pgn: string) => void
+  onBack?: () => void
 }
 
-const ChessboardComponent: React.FC<ChessboardComponentProps> = ({initialPgn = '', onPgnChange}) => {
+const ChessboardComponent: React.FC<ChessboardComponentProps> = ({initialPgn = '', onSave, onBack}) => {
   const game = useRef(new Chess())
   const [fen, setFen] = useState(game.current.fen())
   const [moveHistory, setMoveHistory] = useState<string[]>([])
   const [fenHistory, setFenHistory] = useState<string[]>([game.current.fen()])
+  const [currentMoveIndex, setCurrentMoveIndex] = useState<number>(-1)
+  const [showComments, setShowComments] = useState(false)
+  const [comments, setComments] = useState<Record<number, string>>({})
+  const [currentComment, setCurrentComment] = useState('')
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [showCopied, setShowCopied] = useState(false)
-  const [showCopiedPgn, setShowCopiedPgn] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [showImportMenu, setShowImportMenu] = useState(false)
-  const [currentMoveIndex, setCurrentMoveIndex] = useState<number>(-1)
 
-  const [showComments, setShowComments] = useState(false)
-  const [moveComments, setMoveComments] = useState<Record<number, string>>({})
-  const [currentComment, setCurrentComment] = useState('')
-
-  const copyTimeoutRef = useRef<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const exportMenuRef = useRef<HTMLDivElement>(null)
   const importMenuRef = useRef<HTMLDivElement>(null)
+  const copyTimeoutRef = useRef<number | null>(null)
+
+  // Effect für das Laden des aktuellen Kommentars
+  useEffect(() => {
+    if (currentMoveIndex >= 0) {
+      setCurrentComment(comments[currentMoveIndex] || '')
+    }
+  }, [currentMoveIndex]) // Entfernt comments aus den Dependencies
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -45,49 +54,108 @@ const ChessboardComponent: React.FC<ChessboardComponentProps> = ({initialPgn = '
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // Initialisierung mit initialPgn
   useEffect(() => {
     if (initialPgn) {
       try {
         game.current.loadPgn(initialPgn)
         setFen(game.current.fen())
-        const moves = game.current.history({verbose: true})
-        const updatedMoveHistory = moves.map(move => move.san)
-        const updatedFenHistory = [game.current.fen()]
+        const history = game.current.history({verbose: true})
+        setMoveHistory(history.map(move => move.san))
 
+        // FEN-Historie aufbauen
+        const newFenHistory = [game.current.fen()]
         game.current.reset()
-        moves.forEach(move => {
-          game.current.move(move.san)
-          updatedFenHistory.push(game.current.fen())
+        history.forEach(move => {
+          game.current.move(move)
+          newFenHistory.push(game.current.fen())
         })
+        setFenHistory(newFenHistory)
 
-        setMoveHistory(updatedMoveHistory)
-        setFenHistory(updatedFenHistory)
+        // Kommentare extrahieren
+        const commentRegex = /\{([^}]+)\}/g
+        const newComments: Record<number, string> = {}
+        let match
+        let moveIndex = 0
+        const pgnWithoutClock = initialPgn.replace(/\%clk \d+:\d+:\d+/g, '')
+
+        while ((match = commentRegex.exec(pgnWithoutClock)) !== null) {
+          const comment = match[1].trim()
+          if (comment) {
+            newComments[moveIndex] = comment
+          }
+          moveIndex++
+        }
+        setComments(newComments)
+        setHasUnsavedChanges(false)
       } catch (error) {
-        console.error('Fehler beim Laden der PGN:', error)
+        console.error('Error loading PGN:', error)
       }
     }
   }, [initialPgn])
 
-  const handleMove = (from: string, to: string) => {
-    const move = game.current.move({from, to})
-    if (move) {
-      setFen(game.current.fen())
-      setMoveHistory(prev => [...prev, move.san])
-      setFenHistory(prev => [...prev, game.current.fen()])
-
-      if (onPgnChange) {
-        onPgnChange(game.current.pgn())
+  // Warnung bei ungespeicherten Änderungen
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        const message = 'Sie haben ungespeicherte Änderungen. Möchten Sie die Seite wirklich verlassen?'
+        e.returnValue = message
+        return message
       }
-      return true
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [hasUnsavedChanges])
+
+  const toggleCommentEditor = () => {
+    setIsCommentEditorOpen(!isCommentEditorOpen)
+  }
+
+  const handleMove = (from: string, to: string) => {
+    try {
+      const move = game.current.move({from, to})
+      if (move) {
+        const newMoveHistory = [...moveHistory, move.san]
+        setMoveHistory(newMoveHistory)
+        setFen(game.current.fen())
+        setFenHistory(prev => [...prev, game.current.fen()])
+        setCurrentMoveIndex(newMoveHistory.length - 1)
+        setHasUnsavedChanges(true)
+        return true
+      }
+    } catch (error) {
+      console.error('Error making move:', error)
     }
     return false
   }
 
   const handleImportPGN = (event: React.ChangeEvent<HTMLInputElement>) => {
-    importPGNFromFile(event, game.current, setFen, setMoveHistory, setFenHistory)
-    if (onPgnChange) {
-      onPgnChange(game.current.pgn())
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = e => {
+      const pgn = e.target?.result as string
+      try {
+        game.current.loadPgn(pgn)
+        const result = processPgn(pgn)
+        setMoves(result.moves)
+        setComments(result.comments)
+        setFen(result.fen)
+        setFenHistory(result.fenHistory)
+
+        if (onPgnChange) {
+          onPgnChange(pgn)
+        }
+      } catch (error) {
+        console.error('Error importing PGN:', error)
+        alert('Ungültige PGN-Datei!')
+      }
     }
+    reader.readAsText(file)
   }
 
   const copyFen = async () => {
@@ -192,10 +260,8 @@ const ChessboardComponent: React.FC<ChessboardComponentProps> = ({initialPgn = '
     }
   }, [currentMoveIndex, moveHistory.length]) // Dependencies für den Effect
 
-  // Aktualisieren Sie die handleClickOnMove Funktion:
   const handleClickOnMove = (index: number) => {
     if (index === -1) {
-      // Startposition
       game.current.load(fenHistory[0])
       setFen(fenHistory[0])
     } else {
@@ -206,37 +272,151 @@ const ChessboardComponent: React.FC<ChessboardComponentProps> = ({initialPgn = '
       }
     }
     setCurrentMoveIndex(index)
+    setCurrentComment(comments[index] || '')
   }
 
   const convertToSymbol = (move: string): string => {
+    return move.replace(/K/g, '♔').replace(/Q/g, '♕').replace(/R/g, '♖').replace(/B/g, '♗').replace(/N/g, '♘')
+  }
+
+  const renderMoveList = () => {
     return (
-      move
-        // Figuren
-        .replace(/K/g, '♔')
-        .replace(/Q/g, '♕')
-        .replace(/R/g, '♖')
-        .replace(/B/g, '♗')
-        .replace(/N/g, '♘')
-      // Optional: Schlagzeichen verschönern
-      // .replace(/x/g, '×')
-      // Optional: Schach und Matt
-      // .replace(/\+/g, '†')
-      // .replace(/#/g, '‡')
+      <div className='whitespace-normal break-words flex flex-wrap'>
+        {Array.from({length: Math.ceil(moveHistory.length / 2)}).map((_, idx) => {
+          const moveNumber = idx + 1
+          const whiteIdx = idx * 2
+          const blackIdx = idx * 2 + 1
+          const whiteMove = moveHistory[whiteIdx]
+          const blackMove = moveHistory[blackIdx]
+          const whiteComment = comments[whiteIdx]
+          const blackComment = comments[blackIdx]
+
+          // Wenn es Kommentare gibt, zeige als Block an
+          if ((whiteComment || blackComment) && showComments) {
+            return (
+              <div key={moveNumber} className='w-full'>
+                <div className='whitespace-nowrap inline-flex mr-2'>
+                  <span>{`${moveNumber}.`}</span>
+                  <span
+                    onClick={() => handleClickOnMove(whiteIdx)}
+                    className={`cursor-pointer rounded px-0.5 hover:bg-gray-100 
+                      ${currentMoveIndex === whiteIdx ? 'bg-gray-300' : ''}`}>
+                    {convertToSymbol(whiteMove)}
+                  </span>
+                </div>
+                {whiteComment && <div className='ml-4 text-gray-600'>{whiteComment}</div>}
+                {blackMove && (
+                  <div className='whitespace-nowrap mt-1'>
+                    <span>{`${moveNumber}...`}</span>
+                    <span
+                      onClick={() => handleClickOnMove(blackIdx)}
+                      className={`cursor-pointer rounded px-0.5 hover:bg-gray-100
+                        ${currentMoveIndex === blackIdx ? 'bg-gray-300' : ''}`}>
+                      {convertToSymbol(blackMove)}
+                    </span>
+                    {blackComment && <div className='ml-4 text-gray-600'>{blackComment}</div>}
+                  </div>
+                )}
+              </div>
+            )
+          }
+
+          // Wenn keine Kommentare, zeige Züge fließend an
+          return (
+            <div key={moveNumber} className='whitespace-nowrap mr-2 mb-1 inline-flex'>
+              <span>{`${moveNumber}.`}</span>
+              <span
+                onClick={() => handleClickOnMove(whiteIdx)}
+                className={`cursor-pointer rounded px-0.5 hover:bg-gray-100
+                  ${currentMoveIndex === whiteIdx ? 'bg-gray-300' : ''}`}>
+                {convertToSymbol(whiteMove)}
+              </span>
+              {blackMove && (
+                <span
+                  onClick={() => handleClickOnMove(blackIdx)}
+                  className={`cursor-pointer rounded px-0.5 hover:bg-gray-100 ml-1
+                    ${currentMoveIndex === blackIdx ? 'bg-gray-300' : ''}`}>
+                  {convertToSymbol(blackMove)}
+                </span>
+              )}
+            </div>
+          )
+        })}
+      </div>
     )
   }
 
   const handleCommentChange = (comment: string) => {
     setCurrentComment(comment)
     if (currentMoveIndex >= 0) {
-      setMoveComments(prev => ({
-        ...prev,
-        [currentMoveIndex]: comment,
-      }))
+      const newComments = {...comments}
+      if (comment.trim()) {
+        newComments[currentMoveIndex] = comment
+      } else {
+        delete newComments[currentMoveIndex]
+      }
+      setComments(newComments)
+      setHasUnsavedChanges(true)
     }
+  }
+
+  const generatePgnWithComments = (): string => {
+    let pgn = ''
+    let moveNumber = 1
+
+    moveHistory.forEach((move, index) => {
+      if (index % 2 === 0) {
+        pgn += `${moveNumber}. `
+        moveNumber++
+      }
+
+      pgn += move
+
+      if (comments[index]) {
+        pgn += ` {${comments[index]}}`
+      }
+
+      pgn += ' '
+    })
+
+    return pgn.trim()
+  }
+
+  const handleSave = () => {
+    const pgn = generatePgnWithComments()
+    if (onSave) {
+      onSave(pgn)
+    }
+    setHasUnsavedChanges(false)
+  }
+
+  const handleBack = () => {
+    if (hasUnsavedChanges) {
+      const shouldLeave = window.confirm('Sie haben ungespeicherte Änderungen. Möchten Sie wirklich zurück zur Übersicht?')
+      if (!shouldLeave) {
+        return
+      }
+    }
+    onBack?.()
   }
 
   return (
     <div className='container mx-auto p-4'>
+      {/* Toolbar */}
+      <div className='mb-4 flex justify-between items-center bg-gray-100 p-4 rounded'>
+        <button onClick={handleBack} className='flex items-center px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600'>
+          <ArrowLeft className='w-4 h-4 mr-2' />
+          Zurück zur Übersicht
+        </button>
+
+        {hasUnsavedChanges && (
+          <button onClick={handleSave} className='flex items-center px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded' title='Änderungen speichern'>
+            <Save className='w-5 h-5 mr-2' />
+            Speichern
+          </button>
+        )}
+      </div>
+
       {/* Haupt-Container mit Flex */}
       <div className='flex flex-col lg:flex-row gap-4'>
         {/* Linke Seite mit Brett und Engine - feste Breite */}
@@ -337,93 +517,32 @@ const ChessboardComponent: React.FC<ChessboardComponentProps> = ({initialPgn = '
             <EngineAnalysis fen={fen} isAnalysing={isAnalyzing} onPlayMove={handleMove} />
           </div>
         </div>
+
+        {/* Zugliste und Kommentare */}
         <div className='flex-1 rounded shadow p-4 min-h-[300px] overflow-auto flex flex-col'>
-          <div className='whitespace-normal break-words flex flex-wrap'>
-            {Array.from({length: Math.ceil(moveHistory.length / 2)}).map((_, idx) => {
-              const moveNumber = idx + 1
-              const whiteIdx = idx * 2
-              const blackIdx = idx * 2 + 1
-              const whiteMove = moveHistory[whiteIdx]
-              const blackMove = moveHistory[blackIdx]
-              const whiteComment = moveComments[whiteIdx]
-              const blackComment = moveComments[blackIdx]
+          <div className='flex-grow'>{renderMoveList()}</div>
 
-              // Wenn es Kommentare gibt, zeige als Block an
-              if (whiteComment || blackComment) {
-                return (
-                  <div key={moveNumber} className='w-full'>
-                    <div className='whitespace-nowrap inline-flex mr-2'>
-                      <span>{`${moveNumber}.`}</span>
-                      <span onClick={() => handleClickOnMove(whiteIdx)} className={`cursor-pointer rounded px-0.5 hover:bg-gray-100 inline-block ${currentMoveIndex === whiteIdx ? 'bg-gray-300' : ''}`}>
-                        {convertToSymbol(whiteMove)}
-                      </span>
-                    </div>
-
-                    {/* Kommentar für weißen Zug */}
-                    {whiteComment && (
-                      <div>
-                        <div className='ml-4 text-gray-600'>{whiteComment}</div>
-                        {/* Schwarzer Zug nach Kommentar auf neuer Zeile */}
-                        {blackMove && (
-                          <div className='whitespace-nowrap mt-1'>
-                            <span>{`${moveNumber}...`}</span>
-                            <span onClick={() => handleClickOnMove(blackIdx)} className={`cursor-pointer rounded px-0.5 hover:bg-gray-100 inline-block ${currentMoveIndex === blackIdx ? 'bg-gray-300' : ''}`}>
-                              {convertToSymbol(blackMove)}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Wenn kein weißer Kommentar, zeige schwarzen Zug normal */}
-                    {!whiteComment && blackMove && (
-                      <>
-                        <span onClick={() => handleClickOnMove(blackIdx)} className={`cursor-pointer rounded px-0.5 hover:bg-gray-100 inline-block ml-1 ${currentMoveIndex === blackIdx ? 'bg-gray-300' : ''}`}>
-                          {convertToSymbol(blackMove)}
-                        </span>
-                        {/* Kommentar für schwarzen Zug */}
-                        {blackComment && <div className='ml-4 text-gray-600'>{blackComment}</div>}
-                      </>
-                    )}
-                  </div>
-                )
-              }
-
-              // Wenn keine Kommentare, zeige Züge normal fließend an
-              return (
-                <div key={moveNumber} className='whitespace-nowrap mr-2 mb-1 inline-flex'>
-                  <span>{`${moveNumber}.`}</span>
-                  <span onClick={() => handleClickOnMove(whiteIdx)} className={`cursor-pointer rounded px-0.5 hover:bg-gray-100 inline-block ${currentMoveIndex === whiteIdx ? 'bg-gray-300' : ''}`}>
-                    {convertToSymbol(whiteMove)}
-                  </span>
-                  {blackMove && (
-                    <span onClick={() => handleClickOnMove(blackIdx)} className={`cursor-pointer rounded px-0.5 hover:bg-gray-100 inline-block ml-1 ${currentMoveIndex === blackIdx ? 'bg-gray-300' : ''}`}>
-                      {convertToSymbol(blackMove)}
-                    </span>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Kommentar Editor und Button bleiben unverändert */}
-          {showComments && (
-            <div className='mt-4'>
-              <textarea
-                value={currentMoveIndex >= 0 ? moveComments[currentMoveIndex] || '' : ''}
-                onChange={e => handleCommentChange(e.target.value)}
-                placeholder='Kommentar zum aktuellen Zug...'
-                className='w-full p-2 border rounded resize-y min-h-[100px]'
-              />
+          <div className='mt-4 space-y-2'>
+            <div>
+              <button onClick={() => setShowComments(!showComments)} className={`px-4 py-2 rounded ${showComments ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>
+                Kommentare {showComments ? 'ausblenden' : 'anzeigen'}
+              </button>
             </div>
-          )}
 
-          <div className='mt-4'>
-            <button onClick={() => setShowComments(!showComments)} className={`px-4 py-2 rounded ${showComments ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>
-              Kommentare {showComments ? 'deaktivieren' : 'aktivieren'}
-            </button>
+            {showComments && (
+              <div className='mt-2'>
+                <textarea
+                  value={currentComment}
+                  onChange={e => handleCommentChange(e.target.value)}
+                  placeholder={currentMoveIndex >= 0 ? 'Kommentar zum aktuellen Zug...' : 'Wählen Sie einen Zug aus, um einen Kommentar hinzuzufügen'}
+                  disabled={currentMoveIndex < 0}
+                  className='w-full p-2 border rounded resize-y min-h-[100px]
+                    disabled:bg-gray-100 disabled:text-gray-500'
+                />
+              </div>
+            )}
           </div>
-        </div>{' '}
+        </div>
       </div>
     </div>
   )
