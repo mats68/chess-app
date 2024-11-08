@@ -1,4 +1,6 @@
 ===
+errors:
+- edit funktionert nicht saved immer beim zug 1
 
 Ideen: 
 - edit-button: bei neuer variante automatisch editmodus
@@ -60,3 +62,48 @@ aktiv und ich kann andere Züge kommentieren.
 Wenn ich den Button nochmals drücke, verswchwindet das Memofeld und der Kommentarmodus is deaktiviert und der Button wird normal dargestellt.
 Beachte bitte, dass wenn ich einen Weissen Zug kommentiere, dann bricht es beim weissen Zug um und 
 die Notation mit dem schwarzen Zug mit "... " weitergeführt.
+
+if I comment a black move it formats like this. e.g.:
+```
+1. d4 d5
+2.c4
+2...e6
+guter zug
+```
+
+but the black move must not be on a new line. It should look like this:
+```
+1. d4 d5
+2.c4 e6
+guter zug
+```
+
+comment for a black move is now correct, but a comment for a white move 
+it should be like this:
+```
+1. d4 d5
+2.c4
+guter zug
+2...e6
+```
+
+
+now its like this:
+1. d4 d5
+2. c4
+comment for c4
+2...e6
+guter zug
+3.♘f3 ♘f6 
+4.♘c3 ♗b4 5.a3 ♗xc3+
+
+but it should be like this (move 4 on same line as move 3):  
+1. d4 d5
+2. c4
+comment for c4
+2...e6
+guter zug
+3.♘f3 ♘f6 4.♘c3 ♗b4 5.a3 ♗xc3+
+
+
+
